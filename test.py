@@ -2,7 +2,7 @@ from http_request import HttpRequest, default_cache_key_calculator
 from reactivex import operators as ops
 
 import logging
-logging.basicConfig(filename='example.log', level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
     
 if __name__ == '__main__':
     request = HttpRequest(cache_key_calculator=default_cache_key_calculator)
