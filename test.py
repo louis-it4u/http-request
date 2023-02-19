@@ -1,4 +1,4 @@
-from http_request import HttpRequest, default_cache_key_calculator
+from it4u_http_request import HttpRequest, default_cache_key_calculator
 from reactivex import operators as ops
 
 import logging

@@ -7,15 +7,14 @@ from reactivex import operators as ops
 from typing import Dict, Any, Callable
 
 class HttpRequest:
-    def __init__(self, cache_key_calculator: Callable[[str, str, Dict[str, Any], Dict[str, Any], Dict[str, str]], str]):
-        self.session = requests.Session()
-        self.cache = {}
+    def __init__(self, 
+                 cache_key_calculator: Callable[[str, str, Dict[str, Any], Dict[str, Any], Dict[str, str]], str], 
+                 session_builder: Callable[[], requests.Session] = lambda: requests.Session(),
+                 headers: Dict[str, str] = None):
+        self.session = session_builder()
         self.cache_key_calculator = cache_key_calculator
-        self.headers = {}
-        self.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
-        self.headers["Accept-Language"] = "en-US,en;q=0.8"
-        self.headers["Accept-Encoding"] = "gzip, deflate, br"
-        self.headers["Connection"] = "keep-alive"
+        self.cache: Dict[Any, Any] = {}
+        self.headers: Dict[str, str] = headers
 
     def get_response_stream(self, url: str, method: str = "GET", params: Dict[str, Any] = None, json: Dict[str, Any] = None, headers: Dict[str, str] = None, allow_redirects: bool = True, timeout: int = 5, max_retries: int = 3) -> rx.Observable:
         headers = headers or self.headers
@@ -62,3 +61,13 @@ class HttpRequest:
 
 def default_cache_key_calculator(url: str, method: str, params: Dict[str, Any], json: Dict[str, Any], headers: Dict[str, str]) -> str:
     return (url, method, str(params), str(json), str(headers))
+
+
+default_headers: Dict[str, str] = {}
+default_headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+default_headers["Accept-Language"] = "en-US,en;q=0.8"
+default_headers["Connection"] = "keep-alive"
+
+
+
+
