@@ -11,7 +11,7 @@ class HttpRequest:
                  cache_key_calculator: Callable[[str, str, Dict[str, Any], Dict[str, Any], Dict[str, str]], str], 
                  session_builder: Callable[[], requests.Session] = lambda: requests.Session(),
                  headers: Dict[str, str] = None):
-        self.session = session_builder()
+        self.session_builder: Callable[[], requests.Session] = session_builder
         self.cache_key_calculator = cache_key_calculator
         self.cache: Dict[Any, Any] = {}
         self.headers: Dict[str, str] = headers
@@ -27,7 +27,7 @@ class HttpRequest:
         retries = 0
         while retries < max_retries:
             try:
-                response = self.session.request(method, url, headers=headers, json=json, params=params, allow_redirects=allow_redirects, timeout=timeout, stream=True)
+                response = self.session_builder().request(method, url, headers=headers, json=json, params=params, allow_redirects=allow_redirects, timeout=timeout, stream=True)
                 self.cache[cache_key] = response
                 return rx.of(response)
             except Exception as e:
