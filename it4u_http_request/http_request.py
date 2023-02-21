@@ -24,7 +24,7 @@ class HttpRequest:
         self.cache: Dict[Any, str] = {}
         self.headers: Dict[str, str] = headers
 
-    def get_response_stream(self, url: Url, pipes: List[Observable] = [], headers: Dict[str, str] = None, allow_redirects: bool = True, timeout: int = 5, max_retries: int = 3, proxy: Dict[str, str]=None) -> Any:
+    def get_response_stream(self, url: Url, pipes: List[Observable] = [], headers: Dict[str, str] = None, allow_redirects: bool = True, timeout: int = 5, max_retries: int = 3, proxy_builder: Callable[[], Dict[str, str]]=None) -> Any:
         headers = headers or self.headers
         cache_key = self.cache_key_calculator(url.url, url.method, url.params, url.json, headers)
         if cache_key in self.cache:
@@ -38,7 +38,7 @@ class HttpRequest:
         while retries < max_retries:
             try:
                 response = self.session_builder().request(
-                    url.method, url.url, headers=headers, json=url.json, params=url.params, allow_redirects=allow_redirects, timeout=timeout, proxies=proxy, stream=True)
+                    url.method, url.url, headers=headers, json=url.json, params=url.params, allow_redirects=allow_redirects, timeout=timeout, proxies=proxy_builder() if proxy_builder is not None else None, stream=True)
                 self.cache[cache_key] = response.text
                 return rx.of(self.cache[cache_key]) \
                     .pipe(*pipes) \

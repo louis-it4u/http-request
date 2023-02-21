@@ -25,8 +25,8 @@ if __name__ == '__main__':
     for url in urls:
         request.get_response_stream(Url(url), pipes=[
             ops.do_action(lambda res: print(re.search(r'<title>(.+)<\/title>', res).group(1)))
-        ], proxy=proxies[0])
+        ])
 
     request.get_response_stream(Url("https://ipconfig.io"), pipes=[
             ops.do_action(print)
-        ], headers={'Accept': 'application/json'}, proxy=proxies[1])
+        ], headers={'Accept': 'application/json'}, proxy_builder=lambda: proxies[1])
