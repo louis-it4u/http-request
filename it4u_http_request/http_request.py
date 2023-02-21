@@ -3,8 +3,16 @@ import logging
 import os
 import pickle
 import reactivex as rx
+from reactivex import Observable
 from reactivex import operators as ops
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, List
+
+class Url:
+    def __init__(self, url: str, method: str = "GET", params: Dict[str, Any] = None, json: Dict[str, Any] = None) -> None:
+        self.url: str = url
+        self.method: str = method
+        self.params: Dict[str, Any] = params
+        self.json: Dict[str, Any] = json
 
 class HttpRequest:
     def __init__(self, 
@@ -13,28 +21,33 @@ class HttpRequest:
                  headers: Dict[str, str] = None):
         self.session_builder: Callable[[], requests.Session] = session_builder
         self.cache_key_calculator = cache_key_calculator
-        self.cache: Dict[Any, Any] = {}
+        self.cache: Dict[Any, str] = {}
         self.headers: Dict[str, str] = headers
 
-    def get_response_stream(self, url: str, method: str = "GET", params: Dict[str, Any] = None, json: Dict[str, Any] = None, headers: Dict[str, str] = None, allow_redirects: bool = True, timeout: int = 5, max_retries: int = 3) -> rx.Observable:
+    def get_response_stream(self, url: Url, pipes: List[Observable] = [], headers: Dict[str, str] = None, allow_redirects: bool = True, timeout: int = 5, max_retries: int = 3, proxy: Dict[str, str]=None) -> Any:
         headers = headers or self.headers
-        cache_key = self.cache_key_calculator(url, method, params, json, headers)
+        cache_key = self.cache_key_calculator(url.url, url.method, url.params, url.json, headers)
         if cache_key in self.cache:
             logging.info(f"Getting response from cache for URL: {url}")
-            return rx.of(self.cache[cache_key])
+            return rx.of(self.cache[cache_key]) \
+                    .pipe(*pipes) \
+                    .run()
 
-        logging.info(f"Making a request to URL: {url}")
+        logging.info(f"Making a request to URL: {url.url}")
         retries = 0
         while retries < max_retries:
             try:
-                response = self.session_builder().request(method, url, headers=headers, json=json, params=params, allow_redirects=allow_redirects, timeout=timeout, stream=True)
-                self.cache[cache_key] = response
-                return rx.of(response)
+                response = self.session_builder().request(
+                    url.method, url.url, headers=headers, json=url.json, params=url.params, allow_redirects=allow_redirects, timeout=timeout, proxies=proxy, stream=True)
+                self.cache[cache_key] = response.text
+                return rx.of(self.cache[cache_key]) \
+                    .pipe(*pipes) \
+                    .run()
             except Exception as e:
-                logging.warning(f"Request to URL {url} failed: {e}. Retrying...")
+                logging.warning(f"Request to URL {url.url} failed: {e}. Retrying...")
                 retries += 1
 
-        raise Exception(f"Failed to get response from URL {url} after {max_retries} retries")
+        raise Exception(f"Failed to get response from URL {url.url} after {max_retries} retries")
 
     def store_cache(self, file_path: str):
         with open(file_path, "wb") as cache_file:
@@ -70,4 +83,41 @@ default_headers["Connection"] = "keep-alive"
 
 
 
+proxies = [
+    { "http": "27.64.192.178:4001" },
+    { "http": "116.96.74.167:4002" },
+    { "http": "202.151.163.10:1080" },
+    { "http": "61.28.224.211:3128" },
+    { "http": "221.132.18.26:8090" },
+    { "http": "27.74.243.242:5678" },
+    { "http": "27.79.167.117:4001" },
+    { "http": "117.4.242.216:5678" },
+    { "http": "203.210.235.91:5678" },
+    { "http": "113.162.84.219:1080" },
+    { "http": "116.98.224.19:10003" },
+    { "http": "113.161.131.43:80" },
+    { "http": "113.161.254.4:1080" },
+    { "http": "221.121.12.238:47012" },
+    { "http": "116.118.98.5:5678" },
+    { "http": "116.118.98.25:5678" },
+    { "http": "14.187.141.43:19132" },
+    { "http": "171.241.42.190:5203" },
+    { "http": "14.241.39.165:19132" },
+    { "http": "14.232.163.52:10801" },
+    { "http": "27.76.232.171:4001" },
+    { "http": "14.177.236.212:55443" },
+    { "http": "113.176.195.145:4153" },
+    { "http": "27.72.104.89:8080" },
+    { "http": "171.247.151.99:4003" },
+    { "http": "171.244.68.28:5678" },
+    { "http": "27.73.175.178:4001" },
+    { "http": "115.72.172.155:8080" },
+    { "http": "113.162.84.218:1080" },
+    { "http": "113.160.159.160:19132" },
+    { "http": "113.160.227.32:1080" },
+    { "http": "116.111.117.53:3333" },
+    { "http": "116.107.251.134:3333" },
+    { "http": "113.160.247.27:19132" },
+    { "http": "14.241.111.38:8080" }
+]
 
