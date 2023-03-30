@@ -5,7 +5,7 @@ import pickle
 import reactivex as rx
 from reactivex import Observable
 from reactivex import operators as ops
-from typing import Dict, Any, Callable, List
+from typing import Dict, Any, Callable, List, Tuple
 
 class Url:
     def __init__(self, url: str, method: str = "GET", params: Dict[str, Any] = None, json: Dict[str, Any] = None) -> None:
@@ -24,12 +24,21 @@ class HttpRequest:
         self.cache: Dict[Any, str] = {}
         self.headers: Dict[str, str] = headers
 
-    def get_response_stream(self, url: Url, pipes: List[Observable] = [], headers: Dict[str, str] = None, allow_redirects: bool = True, timeout: int = 5, max_retries: int = 3, proxy_builder: Callable[[], Dict[str, str]]=None) -> Any:
+    def get_response_stream(self, 
+                            url: Url, 
+                            pipes: List[Observable] = [], 
+                            headers: Dict[str, str] = None, 
+                            allow_redirects: bool = True, 
+                            timeout: int = 5, 
+                            verify: bool = False, 
+                            max_retries: int = 3, 
+                            proxy_builder: Callable[[], Dict[str, str]]=None
+                            ) -> Tuple[Url, Any]:
         headers = headers or self.headers
         cache_key = self.cache_key_calculator(url.url, url.method, url.params, url.json, headers)
         if cache_key in self.cache:
             logging.info(f"Getting response from cache for URL: {url}")
-            return rx.of(self.cache[cache_key]) \
+            return url, rx.of(self.cache[cache_key]) \
                     .pipe(*pipes) \
                     .run()
 
@@ -38,9 +47,21 @@ class HttpRequest:
         while retries < max_retries:
             try:
                 response = self.session_builder().request(
-                    url.method, url.url, headers=headers, json=url.json, params=url.params, allow_redirects=allow_redirects, timeout=timeout, proxies=proxy_builder() if proxy_builder is not None else None, stream=True)
+                    url.method, 
+                    url.url, 
+                    headers=headers, 
+                    json=url.json, 
+                    params=url.params, 
+                    allow_redirects=allow_redirects, 
+                    timeout=timeout, 
+                    verify=verify, 
+                    proxies=proxy_builder() if proxy_builder is not None else None, 
+                    stream=False
+                )
+
                 self.cache[cache_key] = response.text
-                return rx.of(self.cache[cache_key]) \
+
+                return url, rx.of(self.cache[cache_key]) \
                     .pipe(*pipes) \
                     .run()
             except Exception as e:
@@ -48,6 +69,36 @@ class HttpRequest:
                 retries += 1
 
         raise Exception(f"Failed to get response from URL {url.url} after {max_retries} retries")
+    
+    def get_responses_stream(self, 
+                             urls: List[Url], 
+                             pipes: List[Observable] = [], 
+                             headers: Dict[str, str] = None, 
+                             allow_redirects: bool = True, 
+                             timeout: int = 5, 
+                             verify: bool = False, 
+                             max_retries: int = 3, 
+                             proxy_builder: Callable[[], Dict[str, str]]=None
+                             ) -> List[Tuple[Url, Any]]:
+        responses = []
+        for url in urls:
+            try:
+                response = self.get_response_stream(url=url, 
+                                        pipes=[],
+                                        headers=headers,
+                                        allow_redirects=allow_redirects,
+                                        timeout=timeout,
+                                        verify=verify,
+                                        max_retries=max_retries,
+                                        proxy_builder=proxy_builder)
+                
+                logging.info("Crawled data from: %s", url.url)
+                responses.append(response)
+            except Exception as e:
+                logging.error("Error crawling data from: %s, %s", url.url, e)
+        return rx.of(responses) \
+                    .pipe(*pipes) \
+                    .run()
 
     def store_cache(self, file_path: str):
         with open(file_path, "wb") as cache_file:
